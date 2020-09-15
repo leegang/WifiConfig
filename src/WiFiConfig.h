@@ -5,7 +5,6 @@
 #include <EEPROM.h>
 #include <FS.h>
 
-
 #include <SPIFFS.h>
 #include <WiFi.h>
 #include <WebServer.h>
@@ -16,8 +15,12 @@
 #include <ArduinoJson.h>
 #include "typename.h"
 
+#define WIFI_OPEN WIFI_AUTH_OPEN
 #define WIFI_OFFSET 2
 #define CONFIG_OFFSET 98
+#define MAGIC_LENGTH 2
+#define SSID_LENGTH 32
+#define PASSWORD_LENGTH 64
 
 enum Mode
 {
@@ -292,9 +295,9 @@ public:
     void toJsonSchema(JsonObject *json)
     {
         // json->set("name", name);
-        json->getOrAddMember("name").set((const char *) name);
+        json->getOrAddMember("name").set((const char *)name);
         // json->set("type", "string");
-        json->getOrAddMember("type").set((const char *) "string");
+        json->getOrAddMember("type").set((const char *)"string");
 
         if (metadata != NULL)
         {
@@ -427,7 +430,7 @@ public:
      *
      * @param name
      */
-    void setAPName(const char *name);
+    void setAPName(char const *name);
 
     /**
      * @brief Set Access Point password, empty by default
@@ -437,7 +440,7 @@ public:
      *
      * @param password
      */
-    void setAPPassword(const char *password);
+    void setAPPassword(char const *password);
 
     /**
      * @brief Set filename of HTML configurator
@@ -529,6 +532,7 @@ public:
         this->configSize = sizeof(T);
 
         EEPROM.begin(CONFIG_OFFSET + this->configSize);
+        this->memoryInitialized = true;
 
         setup();
     }
@@ -552,6 +556,8 @@ private:
     Mode mode;
     void *config;
     size_t configSize;
+    bool memoryInitialized = false;
+    bool webserverRunning = false;
 
     char *apName = (char *)"Thing";
     char *apPassword = NULL;
@@ -713,6 +719,8 @@ private:
      * @return boolean
      */
     boolean isIp(String str);
+    void storeWifiSettings(String ssid, String password);
+    bool commitChanges();
 
     /**
      * @brief

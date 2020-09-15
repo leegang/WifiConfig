@@ -1,7 +1,9 @@
 #include "WiFiConfig.h"
 
 const byte DNS_PORT = 53;
-const char magicBytes[2] = {'C', 'M'};
+// const char magicBytes[2] = {'C', 'M'};
+const char magicBytes[MAGIC_LENGTH] = {'C', 'M'};
+const char magicBytesEmpty[MAGIC_LENGTH] = {'\0', '\0'};
 
 const char mimeHTML[] PROGMEM = "text/html";
 const char mimeJSON[] PROGMEM = "application/json";
@@ -12,14 +14,14 @@ ConfigManager::ConfigManager()
     this->setAPFilename("/index.html");
 }
 
-void ConfigManager::setAPName(const char *name)
+void ConfigManager::setAPName(char const *name)
 {
-    this->apName = (char *)name;
+    this->apName =  (char*)name;
 }
 
-void ConfigManager::setAPPassword(const char *password)
+void ConfigManager::setAPPassword(char const *password)
 {
-    this->apPassword = (char *)password;
+    this->apPassword =  (char*)password;
 }
 
 void ConfigManager::setAPFilename(const char *filename)
@@ -91,7 +93,7 @@ void ConfigManager::save()
  */
 JsonObject ConfigManager::decodeJson(String jsonString)
 {
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(512);
 
     if (jsonString.length() == 0)
     {
@@ -147,7 +149,7 @@ void ConfigManager::handleReboot()
  */
 void ConfigManager::handleGetWifi()
 {
-    DynamicJsonDocument jsonBuffer(1024);
+    DynamicJsonDocument jsonBuffer(512);
     JsonObject res = jsonBuffer.as<JsonObject>();
 
     // WiFi mode
@@ -192,7 +194,7 @@ void ConfigManager::handleGetWifi()
  */
 void ConfigManager::handleGetWifiScan()
 {
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(512);
     JsonArray jsonArray = doc.createNestedArray();
     // JsonObject res = jsonBuffer.as<JsonObject>();
 
@@ -227,49 +229,63 @@ void ConfigManager::handleGetWifiScan()
     server->send(200, FPSTR(mimeJSON), body);
 }
 
+void ConfigManager::storeWifiSettings(String ssid,
+                                      String password) {
+  char ssidChar[SSID_LENGTH];
+  char passwordChar[PASSWORD_LENGTH];
+
+  if (!this->memoryInitialized) {
+    Serial.println(
+        F("WiFi Settings cannot be stored before ConfigManager::begin()"));
+    return;
+  }
+
+  strncpy(ssidChar, ssid.c_str(), SSID_LENGTH);
+  strncpy(passwordChar, password.c_str(), PASSWORD_LENGTH);
+
+  Serial.print(F("Storing WiFi Settings for SSID: \""));
+  Serial.print(ssidChar);
+  Serial.println(F("\""));
+
+  EEPROM.put(MAGIC_LENGTH, ssidChar);
+  EEPROM.put(MAGIC_LENGTH + SSID_LENGTH, passwordChar);
+  bool wroteChange = this->commitChanges();
+
+  Serial.print(F("EEPROM committed: "));
+  Serial.println(wroteChange ? F("true") : F("false"));
+}
+
+
 /**
  * @brief Connect to the Access Point
  *
  */
 void ConfigManager::handlePostConnect()
 {
-    bool isJson = server->header("Content-Type") == FPSTR(mimeJSON);
-    String ssid;
-    String password;
-    char ssidChar[32];
-    char passwordChar[64];
+     bool isJson = server->header("Content-Type") == FPSTR(mimeJSON);
+  String ssid;
+  String password;
 
-    if (isJson)
-    {
-        JsonObject obj = decodeJson(server->arg("plain"));
+  if (isJson) {
+    JsonObject obj = decodeJson(server->arg("plain"));
 
-        ssid = obj.getMember("ssid").as<String>();
-        password = obj.getMember("password").as<String>();
-    }
-    else
-    {
-        ssid = server->arg("ssid");
-        password = server->arg("password");
-    }
+    ssid = obj.getMember("ssid").as<String>();
+    password = obj.getMember("password").as<String>();
+  } else {
+    ssid = server->arg("ssid");
+    password = server->arg("password");
+  }
 
-    if (ssid.length() == 0)
-    {
-        server->send(400, FPSTR(mimePlain), F("Invalid ssid or password."));
-        return;
-    }
+  if (ssid.length() == 0) {
+    server->send(400, FPSTR(mimePlain), F("Invalid ssid."));
+    return;
+  }
 
-    strncpy(ssidChar, ssid.c_str(), sizeof(ssidChar));
-    strncpy(passwordChar, password.c_str(), sizeof(passwordChar));
+  this->storeWifiSettings(ssid, password);
 
-    EEPROM.put(0, magicBytes);
-    EEPROM.put(WIFI_OFFSET, ssidChar);
-    EEPROM.put(WIFI_OFFSET + 32, passwordChar);
-    EEPROM.commit();
+  server->send(204, FPSTR(mimePlain), F("Saved. Will attempt to reboot."));
 
-    server->send(204, FPSTR(mimePlain), F("Saved. Will attempt to reboot."));
-
-    // Restart server
-    ESP.restart();
+  ESP.restart();
 }
 
 /**
@@ -278,8 +294,8 @@ void ConfigManager::handlePostConnect()
  */
 void ConfigManager::handlePostDisconnect()
 {
-    char ssidChar[32] = {0};
-    char passwordChar[64] = {0};
+    char ssidChar[SSID_LENGTH] = {0};
+    char passwordChar[PASSWORD_LENGTH] = {0};
 
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
@@ -301,7 +317,7 @@ void ConfigManager::handlePostDisconnect()
  */
 void ConfigManager::handleGetSettingsSchema()
 {
-    DynamicJsonDocument jsonBuffer(1024);
+    DynamicJsonDocument jsonBuffer(512);
     JsonArray res = jsonBuffer.createNestedArray();
 
     std::list<ConfigParameterGroup *>::iterator it;
@@ -323,7 +339,7 @@ void ConfigManager::handleGetSettingsSchema()
  */
 void ConfigManager::handleGetSettings()
 {
-    DynamicJsonDocument jsonBuffer(1024);
+    DynamicJsonDocument jsonBuffer(512);
     JsonObject res = jsonBuffer.as<JsonObject>();
 
     std::list<ConfigParameterGroup *>::iterator it;
@@ -344,7 +360,7 @@ void ConfigManager::handleGetSettings()
  */
 void ConfigManager::handlePostSettings()
 {
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(512);
     JsonObject obj = this->decodeJson(server->arg("plain"));
     auto error = deserializeJson(doc, server->arg("plain"));
     if (error)
@@ -433,9 +449,9 @@ bool ConfigManager::wifiConnected()
  */
 void ConfigManager::setup()
 {
-    char magic[2] = {0};
-    char ssid[32] = {0};
-    char password[64] = {0};
+    char magic[MAGIC_LENGTH];
+    char ssid[SSID_LENGTH];
+    char password[PASSWORD_LENGTH];
 
     //
     Serial.println(F("Reading saved configuration"));
@@ -579,13 +595,14 @@ void ConfigManager::startApi(const char *ssid)
 
     WiFi.mode(WIFI_STA);
     WiFi.setHostname(hname);
-    // // 
-    WiFi.config(0u, 0u, 0u);
+    // //
     WiFi.begin();
-    
-    // (void)wifi_station_dhcpc_start();
+    WiFi.config(0u, 0u, 0u, 0u);
+}
 
-
+bool ConfigManager::commitChanges() {
+  EEPROM.put(0, magicBytes);
+  return EEPROM.commit();
 }
 
 /**

@@ -16,12 +16,12 @@ void ConfigParameterGroup::toJsonSchema(JsonObject *json)
     if (this->metadata != NULL)
     {
         // json->set("label", this->metadata->label());
-        json->getOrAddMember('label').set((const char*) this->metadata->label());
+        json->getOrAddMember("label").set(this->metadata->label());
 
         if (this->metadata->description() != NULL)
         {
             // json->set("description", this->metadata->description());
-            json->getOrAddMember('description').set((const char*) this->metadata->description());
+            json->getOrAddMember("description").set( this->metadata->description());
 
         }
     }
@@ -41,9 +41,7 @@ void ConfigParameterGroup::fromJson(JsonObject *json)
     {
         // JsonVariant var = json->get<JsonVariant>(name);
         JsonVariant var = json->getMember(name).as<JsonVariant>();
-
-        JsonObject  group;
-        serializeJsonPretty(var,group);
+        JsonObject  group = var.to<JsonObject>();
 
         std::list<ConfigParameterInterface *>::iterator it;
         for (it = parameters.begin(); it != parameters.end(); ++it)

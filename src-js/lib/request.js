@@ -1,5 +1,6 @@
 const defaultHeaders = {
     'Content-Type': 'application/json',
+    'Referrer-Policy': 'origin',
 };
 
 const defaultParams = {};

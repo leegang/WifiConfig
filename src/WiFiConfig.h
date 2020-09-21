@@ -178,11 +178,12 @@ public:
     {
         // json->set(name, *ptr);
 
-        // if (cb)
-        // {
-        //     cb(name);
-        // }
-        json->getOrAddMember("name").set((const char *)ptr);
+        
+        json->getOrAddMember(name).set((const char *)ptr);
+        if (cb)
+        {
+            cb(name);
+        }
     }
 
     /**
@@ -284,7 +285,11 @@ public:
     void toJson(JsonObject *json)
     {
         // json->set(name, ptr);
-        json->getOrAddMember("name").set((const char *)ptr);
+        json->getOrAddMember(name).set((const char *)ptr);
+        // if (cb)
+        // {
+        //     cb(name);
+        // }
     }
 
     /**
@@ -410,6 +415,7 @@ private:
     Metadata *metadata;
 
     std::list<ConfigParameterInterface *> parameters;
+    
 };
 
 /**
@@ -430,7 +436,7 @@ public:
      *
      * @param name
      */
-    void setAPName(char const *name);
+    void setAPName(const char* name);
 
     /**
      * @brief Set Access Point password, empty by default
@@ -440,7 +446,7 @@ public:
      *
      * @param password
      */
-    void setAPPassword(char const *password);
+    void setAPPassword(const char* password);
 
     /**
      * @brief Set filename of HTML configurator
@@ -560,7 +566,7 @@ private:
     bool webserverRunning = false;
 
     char *apName = (char *)"Thing";
-    char *apPassword = NULL;
+    char *apPassword = (char *)NULL;
     char *apFilename = (char *)"/index.html";
     unsigned long apTimeout = 0;
     unsigned long apStart = 0;

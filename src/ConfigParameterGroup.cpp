@@ -1,18 +1,20 @@
 #include "WiFiConfig.h"
 
+
+
 void ConfigParameterGroup::toJson(JsonObject *json)
 {
-
+    JsonObject obj = json->createNestedObject(this->name);
     std::list<ConfigParameterInterface *>::iterator it;
     for (it = parameters.begin(); it != parameters.end(); ++it)
     {
-        (*it)->toJson(json);
+        (*it)->toJson(&obj);
     }
 }
 
 void ConfigParameterGroup::toJsonSchema(JsonObject *json)
 {
-    json->getOrAddMember(name).set((const char*) name);
+    json->getOrAddMember("name").set((const char*) name);
     if (this->metadata != NULL)
     {
         // json->set("label", this->metadata->label());

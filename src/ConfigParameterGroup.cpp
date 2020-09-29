@@ -43,7 +43,7 @@ void ConfigParameterGroup::fromJson(JsonObject *json)
     {
         // JsonVariant var = json->get<JsonVariant>(name);
         JsonVariant var = json->getMember(name).as<JsonVariant>();
-        JsonObject  group = var.to<JsonObject>();
+        JsonObject  group = var.as<JsonObject>();
 
         std::list<ConfigParameterInterface *>::iterator it;
         for (it = parameters.begin(); it != parameters.end(); ++it)

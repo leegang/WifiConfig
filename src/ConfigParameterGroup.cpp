@@ -40,13 +40,16 @@ void ConfigParameterGroup::toJsonSchema(JsonObject *json)
 void ConfigParameterGroup::fromJson(JsonObject *json)
 {
     if (json->containsKey(name) && json->getMember(name).is<JsonObject>())
+    // if (json->containsKey(name))
     {
         // JsonVariant var = json->get<JsonVariant>(name);
         JsonVariant var = json->getMember(name).as<JsonVariant>();
         JsonObject  group = var.as<JsonObject>();
+        Serial.print("from json ing ... ");
+        serializeJson(group,Serial);
 
         std::list<ConfigParameterInterface *>::iterator it;
-        for (it = parameters.begin(); it != parameters.end(); ++it)
+        for (it = parameters.begin(); it != parameters.end(); it++)
         {
             (*it)->fromJson(&group);
         }

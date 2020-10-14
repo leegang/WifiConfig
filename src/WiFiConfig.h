@@ -162,9 +162,18 @@ public:
      */
     void fromJson(JsonObject *json)
     {
-        if (json->containsKey(name) && json->getMember(name).is<T>())
+
+        // if (json->containsKey(name) && json->getMember(name).is<T>())
+        Serial.println("json->containsKey(name)");
+        Serial.println(json->containsKey(name));
+        Serial.println("is<T>()");
+        Serial.println(json->getMember(name).is<T>());
+        if (json->containsKey(name))
         {
 
+            *ptr = json->getMember(name).as<T>();
+            Serial.print("*ptr:");
+            Serial.print(*ptr);
             this->update(json->getMember(name).as<T>());
         }
     }
@@ -178,8 +187,7 @@ public:
     {
         // json->set(name, *ptr);
 
-        
-        json->getOrAddMember(name).set((const char *)ptr);
+        json->getOrAddMember(name).set(*ptr);
         if (cb)
         {
             cb(name);
@@ -254,7 +262,7 @@ public:
 
     void update(const char *value)
     {
-        memset(ptr, 0, length);
+        memset(ptr, '\0', length);
         strncpy(ptr, value, length - 1);
     }
 
@@ -265,15 +273,13 @@ public:
      */
     void fromJson(JsonObject *json)
     {
-        // if (json->containsKey(name) && json->is<char *>(name))
         if (json->containsKey(name) && json->getMember(name).is<char *>())
         {
             const char *value = json->getMember(name).as<const char *>();
-            ;
             this->update(value);
 
-            memset(ptr, '\0', length);
-            strncpy(ptr, const_cast<char *>(value), length - 1);
+            // memset(ptr, '\0', length);
+            // strncpy(ptr, const_cast<char *>(value), length - 1);
         }
     }
 
@@ -285,7 +291,7 @@ public:
     void toJson(JsonObject *json)
     {
         // json->set(name, ptr);
-        json->getOrAddMember(name).set((const char *)ptr);
+        json->getOrAddMember(name).set(ptr);
         // if (cb)
         // {
         //     cb(name);
@@ -300,9 +306,9 @@ public:
     void toJsonSchema(JsonObject *json)
     {
         // json->set("name", name);
-        json->getOrAddMember("name").set((const char *)name);
+        json->getOrAddMember("name").set(name);
         // json->set("type", "string");
-        json->getOrAddMember("type").set((const char *)"string");
+        json->getOrAddMember("type").set("string");
 
         if (metadata != NULL)
         {
@@ -415,7 +421,6 @@ private:
     Metadata *metadata;
 
     std::list<ConfigParameterInterface *> parameters;
-    
 };
 
 /**
@@ -436,7 +441,7 @@ public:
      *
      * @param name
      */
-    void setAPName(const char* name);
+    void setAPName(const char *name);
 
     /**
      * @brief Set Access Point password, empty by default
@@ -446,7 +451,7 @@ public:
      *
      * @param password
      */
-    void setAPPassword(const char* password);
+    void setAPPassword(const char *password);
 
     /**
      * @brief Set filename of HTML configurator

@@ -403,24 +403,34 @@ void ConfigManager::handleGetSettings()
  */
 void ConfigManager::handlePostSettings()
 {
-    DynamicJsonDocument doc(512);
-    JsonObject obj = this->decodeJson(server->arg("plain"));
+    DynamicJsonDocument doc(1024);
+    Serial.print("Received post settings request...");
+    // JsonObject obj = this->decodeJson(server->arg("plain"));
+
     auto error = deserializeJson(doc, server->arg("plain"));
     if (error)
     {
         server->send(400, FPSTR(mimeJSON), "");
+        Serial.print("Bad requests");
         return;
     }
+
+    JsonObject obj = doc.as<JsonObject>();
+    Serial.print("obj=");
+    serializeJson(obj, Serial);
 
     std::list<ConfigParameterGroup *>::iterator it;
     for (it = groups.begin(); it != groups.end(); ++it)
     {
+
         (*it)->fromJson(&obj);
     }
 
     writeConfig();
-
-    server->send(204, FPSTR(mimeJSON), "");
+    Serial.println("Wrote settings");
+    server->send(201, FPSTR(mimeJSON), "OK");
+    delay(1000);
+    ESP.restart();
 }
 
 /**
@@ -563,6 +573,9 @@ void ConfigManager::startWebServer()
     server->collectHeaders(headerKeys, headerKeysSize);
 
     server->on("/", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
+    server->on("/home", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
+    server->on("/set", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
+    server->on("/status", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
 
     server->on("/reboot", HTTPMethod::HTTP_POST, std::bind(&ConfigManager::handleReboot, this));
 
@@ -662,6 +675,7 @@ void ConfigManager::readConfig()
     for (unsigned int i = 0; i < configSize; i++)
     {
         *(ptr++) = EEPROM.read(CONFIG_OFFSET + i);
+        Serial.print(*ptr);
     }
 }
 
@@ -672,12 +686,13 @@ void ConfigManager::readConfig()
 void ConfigManager::writeConfig()
 {
     byte *ptr = (byte *)config;
-
-    for (unsigned int i = 0; i < configSize; i++)
-    {
+    Serial.println(configSize);
+    for ( int i = 0; i < (int16_t)configSize; i++)
+    {   
         EEPROM.write(CONFIG_OFFSET + i, *(ptr++));
+        // Serial.println(*ptr);
     }
-    EEPROM.commit();
+    this->commitChanges();
 }
 
 /**

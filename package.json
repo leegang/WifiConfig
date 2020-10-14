@@ -14,7 +14,8 @@
     "build:live": "NODE_ENV=production webpack --config src-js/webpack.live.js --progress"
   },
   "dependencies": {
-    "vue": "^2"
+    "vue": "^2",
+    "vue-router": "^3.4.6"
   },
   "devDependencies": {
     "@babel/core": "^7",

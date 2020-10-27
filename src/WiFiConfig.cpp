@@ -20,6 +20,11 @@ void ConfigManager::setAPName(const char *name)
     this->apName = (char *)name;
 }
 
+void ConfigManager::setVersionName(const int name)
+{
+    this->VersionName = name;
+}
+
 void ConfigManager::setAPPassword(const char *password)
 {
     this->apPassword = (char *)password;
@@ -63,7 +68,7 @@ void ConfigManager::loop()
 {
     if (mode == MODE_AP && apTimeout > 0 && ((millis() - apStart) / 1000) > apTimeout)
     {
-        // ESP.restart();
+        ESP.restart();
     }
 
     if (dnsServer)
@@ -311,13 +316,13 @@ void ConfigManager::handlePostConnect()
 
     if (ssid.length() == 0)
     {
-        server->send(400, FPSTR(mimePlain), F("Invalid ssid."));
+        server->send(400, FPSTR(mimeHTML), F("Invalid ssid."));
         return;
     }
 
     this->storeWifiSettings(ssid, password);
 
-    server->send(204, FPSTR(mimePlain), F("Saved. Will attempt to reboot."));
+    server->send(201, FPSTR(mimeHTML), F("Saved. Will attempt to reboot."));
 
     ESP.restart();
 }
@@ -428,7 +433,7 @@ void ConfigManager::handlePostSettings()
 
     writeConfig();
     Serial.println("Wrote settings");
-    server->send(201, FPSTR(mimeJSON), "OK");
+    server->send(201, FPSTR(mimeHTML), "OK");
     delay(1000);
     ESP.restart();
 }
@@ -576,6 +581,7 @@ void ConfigManager::startWebServer()
     server->on("/home", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
     server->on("/set", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
     server->on("/status", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleGetRoot, this));
+    server->on("/update", HTTPMethod::HTTP_GET, std::bind(&ConfigManager::handleOtaUpdate, this));
 
     server->on("/reboot", HTTPMethod::HTTP_POST, std::bind(&ConfigManager::handleReboot, this));
 
@@ -637,6 +643,177 @@ void ConfigManager::startAP()
     apStart = millis();
 }
 
+void ConfigManager::handleOtaUpdate()
+{
+    Serial.print("Updating firmware, please wait ... ");
+    M5.Lcd.setBrightness(100);
+    M5.Lcd.fillScreen(BLACK);
+    M5.Lcd.setTextColor(WHITE);
+    M5.Lcd.setCursor(0, 18);
+    M5.Lcd.setTextSize(1);
+    // M5.Lcd.setFreeFont(FMB9);
+    M5.Lcd.setTextDatum(TL_DATUM);
+    M5.Lcd.println("FIRMWARE UPDATE");
+    M5.Lcd.println();
+    Serial.print("Free Heap: ");
+    Serial.println(ESP.getFreeHeap());
+    M5.Lcd.print("Free Heap: ");
+    M5.Lcd.println(ESP.getFreeHeap());
+    M5.Lcd.println();
+
+    String message  = "<!DOCTYPE HTML>\r\n";
+    message += "<html>\r\n";
+    message += "<head>\r\n";
+    message += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\r\n";
+    message += "<meta http-equiv=\"refresh\" content=\"30;url=/\" />\r\n";
+    message += "<style>\r\n";
+    message += "html { font-family: Segoe UI; display: inline-block; margin: 5px auto; text-align: left;}\r\n";
+    message += "</style>\r\n";
+    message += "<title>TomatoM5 - ";
+    message += "</title>\r\n";
+    message += "</head>\r\n";
+    message += "<body>\r\n";
+
+    HTTPClient http;
+
+    String binUrl;
+    int needUpgrade = 1;
+    int err;
+    int webVer = 0 ;
+
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        http.begin("https://app.tomato.cool/5013");         //Specify destination for HTTP request
+        http.addHeader("Content-Type", "application/json"); //Specify content-type header
+        char tmpstr[64];
+
+        sprintf(tmpstr, "{\"fwversion\" : %d, \"miaomiao_v\" :4}", this->VersionName);
+        String jsonString = tmpstr;
+
+        int httpCode = http.POST(jsonString);
+        if (httpCode > 0)
+        {
+            if (httpCode == 200)
+            {
+                String json = http.getString();
+                Serial.print(json);
+                // remove any non text characters (just for sure)
+                for (int i = 0; i < json.length(); i++)
+                {
+                    // Serial.print(json.charAt(i), DEC); Serial.print(" = "); Serial.println(json.charAt(i));
+                    if (json.charAt(i) < 32 /* || json.charAt(i)=='\\' */)
+                    {
+                        json.setCharAt(i, 32);
+                    }
+                }
+                DynamicJsonDocument JSONdoc(512);
+                DeserializationError JSONerr = deserializeJson(JSONdoc, json);
+                if (JSONerr)
+                { //Check for errors in parsing
+                    if (JSONerr)
+                    {
+                        err = 1001; // "JSON parsing failed"
+                    }
+                    else
+                    {
+                        err = 1002; // "No data from Nightscout"
+                    }
+                    Serial.print("err:");
+                    Serial.println(err);
+                }
+                else
+                {
+                    Serial.println("JSON deserialized OK");
+                    needUpgrade = JSONdoc["data"]["need_upgrade"];
+                    binUrl = JSONdoc["data"]["file_url"].as<String>();
+                    Serial.println(binUrl);
+                    webVer = JSONdoc["data"]["new_fwversion"];
+                }
+            }
+        }
+        http.end();
+        // return;
+    }
+    delay(1000);
+    if (WiFi.status() == WL_CONNECTED)
+    {
+        if (needUpgrade == 1)
+        {
+            message += "<p>Updating firmware to version ";
+            message += webVer;
+            message += ", please wait ... </p>\r\n";
+            message += "<p>Device will restart automatically.</p>\r\n";
+            message += "</body>\r\n";
+            message += "</html>\r\n";
+            server->send(200, "text/html", message);
+
+
+            M5.Lcd.println();
+            M5.Lcd.println("Updating the firmware... ");
+            M5.Lcd.println();
+            ESPhttpUpdate.rebootOnUpdate(false);
+            delay(100);
+            Serial.print("binUrl:");
+            Serial.println(binUrl);
+            t_httpUpdate_return ret = ESPhttpUpdate.update(binUrl);
+
+            switch (ret)
+            {
+            case HTTP_UPDATE_FAILED:
+                Serial.printf("HTTP_UPDATE_FAILED Error (%d): %s\n", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+                M5.Lcd.setTextColor(RED);
+                M5.Lcd.println("UPDATE FAILED");
+                delay(1000);
+                break;
+
+            case HTTP_UPDATE_NO_UPDATES:
+                Serial.println("HTTP_UPDATE_NO_UPDATES");
+                M5.Lcd.setTextColor(YELLOW);
+                M5.Lcd.println("NO UPDATES");
+                delay(1000);
+                break;
+
+            case HTTP_UPDATE_OK:
+                Serial.println("HTTP_UPDATE_OK, restarting ...");
+                M5.Lcd.setTextColor(GREEN);
+                M5.Lcd.println("UPDATED SUCCESSFULLY");
+                M5.Lcd.println("Restarting ...");
+                delay(1000);
+                M5.update();
+                delay(1000);
+                ESP.restart();
+                break;
+            }
+        }
+        else
+        {
+            message += "<p>Nothing to update. Firmware version ";
+            message += webVer;
+            message += " is current.</p>\r\n";
+            message += "</body>\r\n";
+            message += "</html>\r\n";
+            server->send(200, "text/html", message);
+            Serial.println("Nothing to update");
+            M5.Lcd.println();
+            M5.Lcd.setTextColor(YELLOW);
+            M5.Lcd.println("NOTHING TO UPDATE");
+            return;
+        }
+        return;
+    }
+    else
+    {
+        Serial.println("HTTP error: connection refused");
+        M5.Lcd.setTextColor(YELLOW);
+        M5.Lcd.println("HTTP error: connection refused");
+        // return;
+    }
+
+    M5.update();
+    delay(2000);
+    M5.Lcd.fillScreen(BLACK);
+}
+
 /**
  * @brief
  *
@@ -687,8 +864,8 @@ void ConfigManager::writeConfig()
 {
     byte *ptr = (byte *)config;
     Serial.println(configSize);
-    for ( int i = 0; i < (int16_t)configSize; i++)
-    {   
+    for (int i = 0; i < (int16_t)configSize; i++)
+    {
         EEPROM.write(CONFIG_OFFSET + i, *(ptr++));
         // Serial.println(*ptr);
     }
@@ -723,10 +900,17 @@ boolean ConfigManager::isIp(String str)
 String ConfigManager::toStringIP(IPAddress ip)
 {
     String res = "";
-    for (unsigned int i = 0; i < 3; i++)
+    for (int i = 0; i < 3; i++)
     {
         res += String((ip >> (8 * i)) & 0xFF) + ".";
     }
-    res += String((ip >> (8 * 3)) & 0xFF);
+    res += String(((ip >> 8 * 3)) & 0xFF);
     return res;
 }
+
+#ifdef localbuild
+// used to compile the project from the project
+// and not as a library from another one
+void setup() {}
+void loop() {}
+#endif

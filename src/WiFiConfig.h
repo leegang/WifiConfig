@@ -14,6 +14,9 @@
 
 #include <ArduinoJson.h>
 #include "typename.h"
+#include <ESP32httpUpdate.h>
+#include <M5Stack.h>
+#include <HTTPClient.h>
 
 #define WIFI_OPEN WIFI_AUTH_OPEN
 #define WIFI_OFFSET 2
@@ -443,6 +446,8 @@ public:
      */
     void setAPName(const char *name);
 
+    void setVersionName(int name);
+
     /**
      * @brief Set Access Point password, empty by default
      *
@@ -555,6 +560,8 @@ public:
      */
     void loop();
 
+
+
     /**
      * @brief Save configuation values
      *
@@ -578,6 +585,7 @@ private:
 
     int wifiConnectRetries = 20;
     int wifiConnectInterval = 500;
+    int VersionName = 0;
 
     std::unique_ptr<DNSServer> dnsServer;
     std::unique_ptr<WebServer> server;
@@ -627,6 +635,12 @@ private:
      * @brief
      *
      */
+    void setup();
+
+    /**
+     * @brief
+     *
+     */
     void handleGetSettings();
 
     /**
@@ -651,6 +665,12 @@ private:
      *
      */
     void handleAPPost();
+
+    /**
+     * @brief
+     *
+     */
+    void handleOtaUpdate();
 
     /**
      * @brief
@@ -699,11 +719,7 @@ private:
      */
     bool wifiConnected();
 
-    /**
-     * @brief
-     *
-     */
-    void setup();
+
 
     /**
      * @brief Start Access Point mode

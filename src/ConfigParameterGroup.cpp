@@ -14,17 +14,14 @@ void ConfigParameterGroup::toJson(JsonObject *json)
 
 void ConfigParameterGroup::toJsonSchema(JsonObject *json)
 {
-    json->getOrAddMember("name").set((const char*) name);
+    (*json)["name"] = (const char*) name;
     if (this->metadata != NULL)
     {
-        // json->set("label", this->metadata->label());
-        json->getOrAddMember("label").set(this->metadata->label());
+        (*json)["label"] = this->metadata->label();
 
         if (this->metadata->description() != NULL)
         {
-            // json->set("description", this->metadata->description());
-            json->getOrAddMember("description").set( this->metadata->description());
-
+            (*json)["description"] = this->metadata->description();
         }
     }
 
@@ -39,11 +36,9 @@ void ConfigParameterGroup::toJsonSchema(JsonObject *json)
 
 void ConfigParameterGroup::fromJson(JsonObject *json)
 {
-    if (json->containsKey(name) && json->getMember(name).is<JsonObject>())
-    // if (json->containsKey(name))
+    if (json->containsKey(name) && (*json)[name].is<JsonObject>())
     {
-        // JsonVariant var = json->get<JsonVariant>(name);
-        JsonVariant var = json->getMember(name).as<JsonVariant>();
+        JsonVariant var = (*json)[name].as<JsonVariant>();
         JsonObject  group = var.as<JsonObject>();
         Serial.print("from json ing ... ");
         serializeJson(group,Serial);

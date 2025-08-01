@@ -27,8 +27,11 @@ module.exports = {
             template: './src-js/index.html',
             inlineSource: '.(js|css)$' // embed all javascript and css inline
         }),
-        new HtmlWebpackInlineSourcePlugin(),
-        new BundleAnalyzerPlugin()
+        new HtmlWebpackInlineSourcePlugin(HtmlWebpackPlugin),
+        new BundleAnalyzerPlugin({
+            analyzerMode: 'static',
+            openAnalyzer: false
+        })
     ],
     module: {
         rules: [
@@ -59,14 +62,12 @@ module.exports = {
             },
             {
                 test: /\.(png|jpg|gif)$/,
-                use: [
-                    {
-                        loader: 'url-loader',
-                        options: {
-                            limit: 4096,
-                        },
-                    },
-                ],
+                type: 'asset',
+                parser: {
+                    dataUrlCondition: {
+                        maxSize: 4096
+                    }
+                }
             },
             {
                 test: /\.svg$/,

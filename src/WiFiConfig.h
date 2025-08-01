@@ -165,19 +165,16 @@ public:
      */
     void fromJson(JsonObject *json)
     {
-
-        // if (json->containsKey(name) && json->getMember(name).is<T>())
         Serial.println("json->containsKey(name)");
         Serial.println(json->containsKey(name));
         Serial.println("is<T>()");
-        Serial.println(json->getMember(name).is<T>());
+        Serial.println((*json)[name].is<T>());
         if (json->containsKey(name))
         {
-
-            *ptr = json->getMember(name).as<T>();
+            *ptr = (*json)[name].as<T>();
             Serial.print("*ptr:");
             Serial.print(*ptr);
-            this->update(json->getMember(name).as<T>());
+            this->update((*json)[name].as<T>());
         }
     }
 
@@ -188,9 +185,7 @@ public:
      */
     void toJson(JsonObject *json)
     {
-        // json->set(name, *ptr);
-
-        json->getOrAddMember(name).set(*ptr);
+        (*json)[name] = *ptr;
         if (cb)
         {
             cb(name);
@@ -204,19 +199,15 @@ public:
      */
     void toJsonSchema(JsonObject *json)
     {
-        // json->set("name", name);
-        json->getOrAddMember("name").set(name);
-        json->getOrAddMember("type").set(GetTypeName<T>());
-        // json->set("type", GetTypeName<T>());
+        (*json)["name"] = name;
+        (*json)["type"] = GetTypeName<T>();
         if (metadata != NULL)
         {
-            // json->set("label", metadata->label());
-            json->getOrAddMember("label").set(this->metadata->label());
+            (*json)["label"] = this->metadata->label();
 
             if (metadata->description() != NULL)
             {
-                // json->set("description", metadata->description());
-                json->getOrAddMember("description").set(this->metadata->description());
+                (*json)["description"] = this->metadata->description();
             }
         }
     }
@@ -276,13 +267,10 @@ public:
      */
     void fromJson(JsonObject *json)
     {
-        if (json->containsKey(name) && json->getMember(name).is<char *>())
+        if (json->containsKey(name) && (*json)[name].is<char *>())
         {
-            const char *value = json->getMember(name).as<const char *>();
+            const char *value = (*json)[name].as<const char *>();
             this->update(value);
-
-            // memset(ptr, '\0', length);
-            // strncpy(ptr, const_cast<char *>(value), length - 1);
         }
     }
 
@@ -293,12 +281,7 @@ public:
      */
     void toJson(JsonObject *json)
     {
-        // json->set(name, ptr);
-        json->getOrAddMember(name).set(ptr);
-        // if (cb)
-        // {
-        //     cb(name);
-        // }
+        (*json)[name] = ptr;
     }
 
     /**
@@ -308,20 +291,16 @@ public:
      */
     void toJsonSchema(JsonObject *json)
     {
-        // json->set("name", name);
-        json->getOrAddMember("name").set(name);
-        // json->set("type", "string");
-        json->getOrAddMember("type").set("string");
+        (*json)["name"] = name;
+        (*json)["type"] = "string";
 
         if (metadata != NULL)
         {
-            // json->set("label", metadata->label());
-            json->getOrAddMember("label").set(metadata->label());
+            (*json)["label"] = metadata->label();
 
             if (metadata->description() != NULL)
             {
-                // json->set("description", metadata->description());
-                json->getOrAddMember("description").set(metadata->description());
+                (*json)["description"] = metadata->description();
             }
         }
     }
